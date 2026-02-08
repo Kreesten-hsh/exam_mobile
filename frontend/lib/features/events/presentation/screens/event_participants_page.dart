@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend/core/theme/app_theme.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/event_participants_provider.dart';
+import '../providers/events_provider.dart';
 import '../widgets/participant_card.dart';
 
 class EventParticipantsPage extends ConsumerWidget {
@@ -13,6 +15,7 @@ class EventParticipantsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final participantsAsync = ref.watch(eventParticipantsProvider(eventId));
+    final currentUser = ref.watch(authProvider).valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -46,13 +49,25 @@ class EventParticipantsPage extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 16),
             itemBuilder: (context, index) {
               final participant = participants[index];
+              final isMe = currentUser?.id == participant.id;
+
               return ParticipantCard(
                 participant: participant,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Chat: Phase 4')),
-                  );
-                },
+                onTap: isMe
+                    ? null
+                    : () {
+                        // Navigate to Chat
+                        // Retrieve event name from provider or use default
+                        final events = ref.read(eventsProvider).valueOrNull;
+                        final event = events?.firstWhere((e) => e.id == eventId,
+                            orElse: () => events.first); // Fallback
+                        final eventName = event?.name ?? 'Discussion';
+
+                        context.push('/events/$eventId/chat', extra: {
+                          'eventName': eventName,
+                          'otherId': participant.id,
+                        });
+                      },
               );
             },
           );

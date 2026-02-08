@@ -10,6 +10,7 @@ import '../../features/events/presentation/screens/event_detail_page.dart';
 import '../../features/events/presentation/screens/event_participants_page.dart';
 import '../../features/events/domain/entities/event_entity.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/chat/presentation/screens/chat_page.dart';
 
 part 'app_router.g.dart';
 
@@ -57,6 +58,17 @@ GoRouter appRouter(Ref ref) {
         builder: (context, state) {
           final eventId = state.pathParameters['id']!;
           return EventParticipantsPage(eventId: eventId);
+        },
+      ),
+      GoRoute(
+        path: '/events/:id/chat',
+        builder: (context, state) {
+          final eventId = state.pathParameters['id']!;
+          final extra = state.extra as Map<String, dynamic>;
+          final eventName = extra['eventName'] as String? ?? 'Discussion';
+          final otherId = extra['otherId'] as String;
+          return ChatPage(
+              eventId: eventId, otherId: otherId, eventName: eventName);
         },
       ),
     ],

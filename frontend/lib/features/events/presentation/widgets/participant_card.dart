@@ -88,14 +88,15 @@ class ParticipantCard extends StatelessWidget {
           ),
 
           // ACTION
-          IconButton(
-            onPressed: onTap,
-            icon: const Icon(Icons.chat_bubble_outline),
-            color: AppTheme.primaryOrange,
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.primaryOrange.withValues(alpha: 0.1),
+          if (onTap != null)
+            IconButton(
+              onPressed: onTap,
+              icon: const Icon(Icons.chat_bubble_outline),
+              color: AppTheme.primaryOrange,
+              style: IconButton.styleFrom(
+                backgroundColor: AppTheme.primaryOrange.withValues(alpha: 0.1),
+              ),
             ),
-          ),
         ],
       ),
     );

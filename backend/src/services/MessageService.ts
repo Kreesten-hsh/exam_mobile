@@ -54,7 +54,15 @@ export class MessageService {
         { sender: { id: userId }, receiver: { id: otherId }, event: { id: eventId }, is_blocked: false },
         { sender: { id: otherId }, receiver: { id: userId }, event: { id: eventId }, is_blocked: false }
       ],
+      relations: ["sender", "receiver", "event"],
       order: { created_at: "ASC" }
+    });
+  }
+
+  async getMessageById(id: string) {
+    return this.messageRepository.findOne({
+      where: { id },
+      relations: ["sender", "receiver", "event"]
     });
   }
 }
