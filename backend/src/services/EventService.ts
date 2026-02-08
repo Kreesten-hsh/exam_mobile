@@ -8,9 +8,27 @@ export class EventService {
   private participantRepository = AppDataSource.getRepository(Participant);
   private userRepository = AppDataSource.getRepository(User);
 
-  async getAllEvents() {
-    return this.eventRepository.find({
+  async getAllEvents(userId?: string) {
+    const events = await this.eventRepository.find({
+      relations: ["media", "participants", "participants.user"],
       order: { event_date: "ASC" }
+    });
+
+    return events.map(event => {
+      const menCount = event.participants.filter(p => p.user.gender === "M").length;
+      const womenCount = event.participants.filter(p => p.user.gender === "F").length;
+      const isRegistered = userId 
+        ? event.participants.some(p => p.user.id === userId)
+        : false;
+      
+      return {
+        ...event,
+        participants_count: event.participants.length,
+        women_count: womenCount,
+        men_count: menCount,
+        is_registered: isRegistered,
+        media: event.media
+      };
     });
   }
 
@@ -23,6 +41,41 @@ export class EventService {
     
     // Add computed counts if needed, or rely on separate query for performance
     return event;
+  }
+
+  async getParticipants(eventId: string, requesterId: string) {
+    // 1. Verify access rights
+    const isRegistered = await this.participantRepository.findOneBy({
+      event: { id: eventId },
+      user: { id: requesterId }
+    });
+
+    if (!isRegistered) {
+      throw new Error("Not registered");
+    }
+
+    // 2. Fetch all participants with user details
+    const participants = await this.participantRepository.find({
+      where: { event: { id: eventId } },
+      relations: ["user"],
+      select: {
+        id: true,
+        user: {
+          id: true,
+          first_name: true,
+          gender: true,
+          profile_photo_url: true
+        }
+      }
+    });
+
+    // 3. Map to safe DTO
+    return participants.map(p => ({
+      id: p.user.id,
+      first_name: p.user.first_name,
+      gender: p.user.gender,
+      avatar_url: p.user.profile_photo_url
+    }));
   }
 
   async registerParticipant(userId: string, eventId: string) {

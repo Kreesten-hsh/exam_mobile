@@ -41,7 +41,9 @@ export class AuthService {
     const payload = { id: user.id, email: user.email, role: user.role };
     const secret = process.env.JWT_SECRET || "default_secret";
     const token = jwt.sign(payload, secret, { expiresIn: "7d" });
-    return { user, token };
+    const response = { user, token };
+    console.log("REGISTER RESPONSE PAYLOAD:", JSON.stringify(response, null, 2)); // DEBUG LOG
+    return response;
   }
 }
 
