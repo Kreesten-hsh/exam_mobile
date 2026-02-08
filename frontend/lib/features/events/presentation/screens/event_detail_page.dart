@@ -28,10 +28,21 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Media handling
-    final mediaList = widget.event.mediaUrls.isNotEmpty
-        ? widget.event.mediaUrls
-        : (widget.event.mediaUrl != null ? [widget.event.mediaUrl!] : []);
+    // 1. Watch la liste globale des events
+    final eventsAsync = ref.watch(eventsProvider);
+
+    // 2. Trouver l'event courrant dans la liste (State Source Unique)
+    // Si la liste charge ou erreur, on utilise widget.event (Fallback)
+    final currentEvent = eventsAsync.valueOrNull?.firstWhere(
+          (e) => e.id == widget.event.id,
+          orElse: () => widget.event,
+        ) ??
+        widget.event;
+
+    // Media handling sur l'event courant
+    final mediaList = currentEvent.mediaUrls.isNotEmpty
+        ? currentEvent.mediaUrls
+        : (currentEvent.mediaUrl != null ? [currentEvent.mediaUrl!] : []);
 
     return Scaffold(
       body: CustomScrollView(
@@ -119,7 +130,7 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                 children: [
                   // TITLE
                   Text(
-                    widget.event.name,
+                    currentEvent.name,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -132,14 +143,14 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                     context,
                     Icons.calendar_today,
                     DateFormat('EEEE d MMMM yyyy • HH:mm', 'fr_FR')
-                        .format(widget.event.date),
+                        .format(currentEvent.date),
                     AppTheme.accentTeal,
                   ),
                   const SizedBox(height: 12),
                   _buildInfoRow(
                     context,
                     Icons.location_on,
-                    widget.event.location ?? 'Lieu à confirmer',
+                    currentEvent.location ?? 'Lieu à confirmer',
                     AppTheme.accentViolet,
                   ),
 
@@ -157,7 +168,7 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    widget.event.description ?? 'Description à venir.',
+                    currentEvent.description ?? 'Description à venir.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppTheme.textGrey,
                           height: 1.5,
@@ -177,7 +188,7 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                         ),
                   ),
                   const SizedBox(height: 16),
-                  _buildParticipantsStats(context, widget.event),
+                  _buildParticipantsStats(context, currentEvent),
 
                   const SizedBox(height: 24),
                   const Divider(color: AppTheme.midnightBlueLight),
@@ -198,7 +209,7 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                         child: _buildPriceCard(
                           context,
                           'Total',
-                          '${widget.event.priceFull.toStringAsFixed(0)}€',
+                          '${currentEvent.priceFull.toStringAsFixed(0)}€',
                           AppTheme.accentTeal,
                         ),
                       ),
@@ -207,7 +218,7 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                         child: _buildPriceCard(
                           context,
                           'Acompte',
-                          '${widget.event.priceDeposit.toStringAsFixed(0)}€',
+                          '${currentEvent.priceDeposit.toStringAsFixed(0)}€',
                           AppTheme.accentViolet,
                         ),
                       ),
@@ -222,15 +233,15 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () {
-                        if (widget.event.isRegistered) {
+                        if (currentEvent.isRegistered) {
                           context
-                              .push('/events/${widget.event.id}/participants');
+                              .push('/events/${currentEvent.id}/participants');
                         } else {
-                          _showRegistrationConfirmation(context);
+                          _showRegistrationConfirmation(context, currentEvent);
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.event.isRegistered
+                        backgroundColor: currentEvent.isRegistered
                             ? AppTheme.midnightBlueLight
                             : AppTheme.accentTeal,
                         foregroundColor: Colors.white,
@@ -240,7 +251,7 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                         elevation: 0,
                       ),
                       child: Text(
-                        widget.event.isRegistered
+                        currentEvent.isRegistered
                             ? 'Voir les participants'
                             : 'S\'inscrire à l\'événement',
                         style: const TextStyle(
@@ -388,14 +399,14 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
     );
   }
 
-  void _showRegistrationConfirmation(BuildContext context) {
+  void _showRegistrationConfirmation(BuildContext context, EventEntity event) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.midnightBlueDark,
         title: const Text('Confirmer l\'inscription',
             style: TextStyle(color: Colors.white)),
-        content: Text('Voulez-vous vous inscrire à "${widget.event.name}" ?',
+        content: Text('Voulez-vous vous inscrire à "${event.name}" ?',
             style: const TextStyle(color: AppTheme.textGrey)),
         actions: [
           TextButton(
@@ -404,16 +415,29 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                 style: TextStyle(color: AppTheme.textGrey)),
           ),
           ElevatedButton(
-            onPressed: () {
-              // Call provider to join event (To be implemented in provider)
+            onPressed: () async {
+              // 1. Fermer la modale AVANT l'appel async (UX Optimiste)
               Navigator.pop(context);
 
-              // Temporary Mock Success (Real implementation in next steps)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Inscription réussie !')),
-              );
-              // Force refresh
-              ref.invalidate(eventsProvider);
+              try {
+                // 2. Appel au provider (qui mettra à jour l'état localement)
+                await ref.read(eventsProvider.notifier).joinEvent(event.id);
+
+                // 3. Feedback succès
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Inscription réussie !')),
+                  );
+                }
+              } catch (e) {
+                // 4. Feedback erreur
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('Erreur lors de l\'inscription : $e')),
+                  );
+                }
+              }
             },
             style:
                 ElevatedButton.styleFrom(backgroundColor: AppTheme.accentTeal),

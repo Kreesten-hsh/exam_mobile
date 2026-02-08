@@ -1,7 +1,7 @@
 class ApiConstants {
   // Use 192.168.1.69 for physical device, or 10.0.2.2 for emulator
   // I will use the IP provided in the prompt context but allow easy switching
-  static const String baseUrl = 'http://192.168.1.69:3000/api';
+  static const String baseUrl = 'http://192.168.1.68:3000/api';
 
   static const String login = '/auth/login';
   static const String register = '/auth/register';
